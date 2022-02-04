@@ -20,6 +20,7 @@ using Nop.Services.Payments;
 using Nop.Web.Framework;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
+using Nop.Services.Orders;
 
 namespace Nop.Plugin.Payments.Platron
 {
@@ -32,11 +33,13 @@ namespace Nop.Plugin.Payments.Platron
 
         private readonly ICurrencyService _currencyService;
         private readonly ILocalizationService _localizationService;
-        private readonly IPaymentService _paymentService;
         private readonly ISettingService _settingService;
         private readonly IWebHelper _webHelper;
         private readonly CurrencySettings _currencySettings;
         private readonly PlatronPaymentSettings _platronPaymentSettings;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IOrderTotalCalculationService _orderTotalCalculationService;
+
 
         private const string PLATRON_URL = "https://www.platron.ru/payment.php";
         private const string PLATRON_RESULTS_URL = "https://www.platron.ru/get_status.php";
@@ -47,19 +50,21 @@ namespace Nop.Plugin.Payments.Platron
 
         public PlatronPaymentProcessor(ICurrencyService currencyService,
             ILocalizationService localizationService,
-            IPaymentService paymentService,
             ISettingService settingService,
             IWebHelper webHelper,
             CurrencySettings currencySettings,
-            PlatronPaymentSettings platronPaymentSettings)
+            PlatronPaymentSettings platronPaymentSettings,
+            IHttpContextAccessor httpContextAccessor, 
+            IOrderTotalCalculationService orderTotalCalculationService)
         {
             _currencyService = currencyService;
             _localizationService = localizationService;
-            _paymentService = paymentService;
             _settingService = settingService;
             _webHelper = webHelper;
             _currencySettings = currencySettings;
             _platronPaymentSettings = platronPaymentSettings;
+            _httpContextAccessor = httpContextAccessor;
+            _orderTotalCalculationService = orderTotalCalculationService;
         }
 
         #endregion
@@ -88,7 +93,7 @@ namespace Nop.Plugin.Payments.Platron
             var orderId = orderGuid.ToString();
 
             //create and send post data
-            var post = new RemotePost
+            var post = new RemotePost(_httpContextAccessor,_webHelper)
             {
                 FormName = "PayPoint",
                 Url = PLATRON_URL
@@ -246,7 +251,7 @@ namespace Nop.Plugin.Payments.Platron
         /// <returns>Additional handling fee</returns>
         public async Task<decimal> GetAdditionalHandlingFeeAsync(IList<ShoppingCartItem> cart)
         {
-            var result = await _paymentService.CalculateAdditionalFeeAsync(cart,
+            var result = await _orderTotalCalculationService.CalculatePaymentAdditionalFeeAsync(cart,
                 _platronPaymentSettings.AdditionalFee, _platronPaymentSettings.AdditionalFeePercentage);
             return result;
         }
