@@ -291,10 +291,10 @@ namespace Nop.Plugin.Payments.Platron
             return typeof(PaymentPlatronViewComponent);
         }
 
-
         /// <summary>
         /// Install plugin method
         /// </summary>
+        
         public override async Task InstallAsync()
         {
             //settings

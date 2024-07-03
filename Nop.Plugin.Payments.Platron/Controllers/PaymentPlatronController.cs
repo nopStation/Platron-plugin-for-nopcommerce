@@ -64,8 +64,8 @@ namespace Nop.Plugin.Payments.Platron.Controllers
         }
 
         [AuthorizeAdmin]
-        [Area(AreaNames.Admin)]
-        public async Task<IActionResult> Configure()
+        [Area(AreaNames.ADMIN)]
+        public async Task<IActionResult> ConfigureAsync()
         {
             if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePaymentMethods))
                 return AccessDeniedView();
@@ -103,8 +103,8 @@ namespace Nop.Plugin.Payments.Platron.Controllers
 
         [HttpPost]
         [AuthorizeAdmin]
-        [Area(AreaNames.Admin)]
-        public async Task<IActionResult> Configure(ConfigurationModel model)
+        [Area(AreaNames.ADMIN)]
+        public async Task<IActionResult> ConfigureAsync(ConfigurationModel model)
         {
             if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManagePaymentMethods))
                 return AccessDeniedView();
@@ -192,7 +192,7 @@ namespace Nop.Plugin.Payments.Platron.Controllers
             }
         }
 
-        public async Task<IActionResult> ConfirmPay(IFormCollection form)
+        public async Task<IActionResult> ConfirmPayAsync(IFormCollection form)
         {
             var processor = await GetPaymentProcessorAsync();
 
@@ -206,7 +206,7 @@ namespace Nop.Plugin.Payments.Platron.Controllers
 
             Order order = null;
 
-            if (Guid.TryParse(orderId, out Guid orderGuid))
+            if (Guid.TryParse(orderId, out var orderGuid))
             {
                 order = await _orderService.GetOrderByGuidAsync(orderGuid);
             }
@@ -262,7 +262,7 @@ namespace Nop.Plugin.Payments.Platron.Controllers
             return processor;
         }
 
-        public async Task<IActionResult> Success()
+        public async Task<IActionResult> SuccessAsync()
         {
             var orderId = _webHelper.QueryString<string>("pg_order_id");
             Order order = null;
@@ -284,12 +284,12 @@ namespace Nop.Plugin.Payments.Platron.Controllers
             return RedirectToRoute("CheckoutCompleted", new { orderId = order.Id });
         }
 
-        public async Task<IActionResult> CancelOrder()
+        public async Task<IActionResult> CancelOrderAsync()
         {
             var orderId = _webHelper.QueryString<string>("pg_order_id");
             Order order = null;
 
-            if (Guid.TryParse(orderId, out Guid orderGuid))
+            if (Guid.TryParse(orderId, out var orderGuid))
                 order = await _orderService.GetOrderByGuidAsync(orderGuid);
 
             if (order == null)
