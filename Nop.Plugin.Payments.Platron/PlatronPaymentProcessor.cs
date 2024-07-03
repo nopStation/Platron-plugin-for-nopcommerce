@@ -20,6 +20,8 @@ using Nop.Services.Payments;
 using Nop.Web.Framework;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
+using Nop.Services.Orders;
+using Nop.Plugin.Payments.Platron.Components;
 
 namespace Nop.Plugin.Payments.Platron
 {
@@ -37,6 +39,8 @@ namespace Nop.Plugin.Payments.Platron
         private readonly IWebHelper _webHelper;
         private readonly CurrencySettings _currencySettings;
         private readonly PlatronPaymentSettings _platronPaymentSettings;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IOrderTotalCalculationService _orderTotalCalculationService;
 
         private const string PLATRON_URL = "https://www.platron.ru/payment.php";
         private const string PLATRON_RESULTS_URL = "https://www.platron.ru/get_status.php";
@@ -51,7 +55,9 @@ namespace Nop.Plugin.Payments.Platron
             ISettingService settingService,
             IWebHelper webHelper,
             CurrencySettings currencySettings,
-            PlatronPaymentSettings platronPaymentSettings)
+            PlatronPaymentSettings platronPaymentSettings,
+            IHttpContextAccessor httpContextAccessor,
+            IOrderTotalCalculationService orderTotalCalculationService)
         {
             _currencyService = currencyService;
             _localizationService = localizationService;
@@ -60,6 +66,8 @@ namespace Nop.Plugin.Payments.Platron
             _webHelper = webHelper;
             _currencySettings = currencySettings;
             _platronPaymentSettings = platronPaymentSettings;
+            _httpContextAccessor = httpContextAccessor;
+            _orderTotalCalculationService = orderTotalCalculationService;
         }
 
         #endregion
@@ -71,9 +79,9 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="processPaymentRequest">Payment info required for an order processing</param>
         /// <returns>Process payment result</returns>
-        public Task<ProcessPaymentResult> ProcessPaymentAsync(ProcessPaymentRequest processPaymentRequest)
+        public async Task<ProcessPaymentResult> ProcessPaymentAsync(ProcessPaymentRequest processPaymentRequest)
         {
-            return Task.FromResult(new ProcessPaymentResult { NewPaymentStatus = PaymentStatus.Pending });
+            return await Task.FromResult(new ProcessPaymentResult { NewPaymentStatus = PaymentStatus.Pending });
         }
 
         /// <summary>
@@ -88,7 +96,7 @@ namespace Nop.Plugin.Payments.Platron
             var orderId = orderGuid.ToString();
 
             //create and send post data
-            var post = new RemotePost
+            var post = new RemotePost(_httpContextAccessor, _webHelper)
             {
                 FormName = "PayPoint",
                 Url = PLATRON_URL
@@ -231,12 +239,12 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="cart">Shoping cart</param>
         /// <returns>true - hide; false - display.</returns>
-        public Task<bool> HidePaymentMethodAsync(IList<ShoppingCartItem> cart)
+        public async Task<bool> HidePaymentMethodAsync(IList<ShoppingCartItem> cart)
         {
             //you can put any logic here
             //for example, hide this payment method if all products in the cart are downloadable
             //or hide this payment method if current customer is from certain country
-            return Task.FromResult(false);
+            return await Task.FromResult(false);
         }
 
         /// <summary>
@@ -246,7 +254,7 @@ namespace Nop.Plugin.Payments.Platron
         /// <returns>Additional handling fee</returns>
         public async Task<decimal> GetAdditionalHandlingFeeAsync(IList<ShoppingCartItem> cart)
         {
-            var result = await _paymentService.CalculateAdditionalFeeAsync(cart,
+            var result = await _orderTotalCalculationService.CalculatePaymentAdditionalFeeAsync(cart,
                 _platronPaymentSettings.AdditionalFee, _platronPaymentSettings.AdditionalFeePercentage);
             return result;
         }
@@ -256,11 +264,11 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="order">Order</param>
         /// <returns>Result</returns>
-        public Task<bool> CanRePostProcessPaymentAsync(Order order)
+        public async Task<bool> CanRePostProcessPaymentAsync(Order order)
         {
             //let's ensure that at least 5 seconds passed after order is placed
             //P.S. there's no any particular reason for that. we just do it
-            return Task.FromResult(!((DateTime.UtcNow - order.CreatedOnUtc).TotalSeconds < 5));
+            return await Task.FromResult(!((DateTime.UtcNow - order.CreatedOnUtc).TotalSeconds < 5));
         }
 
         public override string GetConfigurationPageUrl()
@@ -268,19 +276,19 @@ namespace Nop.Plugin.Payments.Platron
             return $"{_webHelper.GetStoreLocation()}Admin/PaymentPlatron/Configure";
         }
 
-        public Task<IList<string>> ValidatePaymentFormAsync(IFormCollection form)
+        public async Task<IList<string>> ValidatePaymentFormAsync(IFormCollection form)
         {
-            return Task.FromResult<IList<string>>(new List<string>());
+            return await Task.FromResult<IList<string>>(new List<string>());
         }
 
-        public Task<ProcessPaymentRequest> GetPaymentInfoAsync(IFormCollection form)
+        public async Task<ProcessPaymentRequest> GetPaymentInfoAsync(IFormCollection form)
         {
-            return Task.FromResult(new ProcessPaymentRequest());
+            return await Task.FromResult(new ProcessPaymentRequest());
         }
 
-        public string GetPublicViewComponentName()
+        public Type GetPublicViewComponent()
         {
-            return "PaymentPlatron";
+            return typeof(PaymentPlatronViewComponent);
         }
 
 
@@ -344,11 +352,11 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="capturePaymentRequest">Capture payment request</param>
         /// <returns>Capture payment result</returns>
-        public Task<CapturePaymentResult> CaptureAsync(CapturePaymentRequest capturePaymentRequest)
+        public async Task<CapturePaymentResult> CaptureAsync(CapturePaymentRequest capturePaymentRequest)
         {
             var result = new CapturePaymentResult();
             result.AddError("Capture method not supported");
-            return Task.FromResult(result);
+            return await Task.FromResult(result);
         }
 
         /// <summary>
@@ -356,11 +364,11 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="refundPaymentRequest">Request</param>
         /// <returns>Result</returns>
-        public Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
+        public async Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
         {
             var result = new RefundPaymentResult();
             result.AddError("Refund method not supported");
-            return Task.FromResult(result);
+            return await Task.FromResult(result);
         }
 
         /// <summary>
@@ -368,11 +376,11 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="voidPaymentRequest">Request</param>
         /// <returns>Result</returns>
-        public Task<VoidPaymentResult> VoidAsync(VoidPaymentRequest voidPaymentRequest)
+        public async Task<VoidPaymentResult> VoidAsync(VoidPaymentRequest voidPaymentRequest)
         {
             var result = new VoidPaymentResult();
             result.AddError("Void method not supported");
-            return Task.FromResult(result);
+            return await Task.FromResult(result);
         }
 
         /// <summary>
@@ -380,11 +388,11 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="processPaymentRequest">Payment info required for an order processing</param>
         /// <returns>Process payment result</returns>
-        public Task<ProcessPaymentResult> ProcessRecurringPaymentAsync(ProcessPaymentRequest processPaymentRequest)
+        public async Task<ProcessPaymentResult> ProcessRecurringPaymentAsync(ProcessPaymentRequest processPaymentRequest)
         {
             var result = new ProcessPaymentResult();
             result.AddError("Recurring payment not supported");
-            return Task.FromResult(result);
+            return await Task.FromResult(result);
         }
 
         /// <summary>
@@ -392,71 +400,11 @@ namespace Nop.Plugin.Payments.Platron
         /// </summary>
         /// <param name="cancelPaymentRequest">Request</param>
         /// <returns>Result</returns>
-        public Task<CancelRecurringPaymentResult> CancelRecurringPaymentAsync(CancelRecurringPaymentRequest cancelPaymentRequest)
+        public async Task<CancelRecurringPaymentResult> CancelRecurringPaymentAsync(CancelRecurringPaymentRequest cancelPaymentRequest)
         {
             var result = new CancelRecurringPaymentResult();
             result.AddError("Recurring payment not supported");
-            return Task.FromResult(result);
-        }
-
-        #endregion
-
-        #region Properties
-
-        /// <summary>
-        /// Gets a value indicating whether capture is supported
-        /// </summary>
-        public bool SupportCapture
-        {
-            get { return false; }
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether partial refund is supported
-        /// </summary>
-        public bool SupportPartiallyRefund
-        {
-            get { return false; }
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether refund is supported
-        /// </summary>
-        public bool SupportRefund
-        {
-            get { return false; }
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether void is supported
-        /// </summary>
-        public bool SupportVoid
-        {
-            get { return false; }
-        }
-
-        /// <summary>
-        /// Gets a recurring payment type of payment method
-        /// </summary>
-        public RecurringPaymentType RecurringPaymentType
-        {
-            get { return RecurringPaymentType.NotSupported; }
-        }
-
-        /// <summary>
-        /// Gets a payment method type
-        /// </summary>
-        public PaymentMethodType PaymentMethodType
-        {
-            get { return PaymentMethodType.Redirection; }
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether we should display a payment information page for this plugin
-        /// </summary>
-        public bool SkipPaymentInfo
-        {
-            get { return false; }
+            return await Task.FromResult(result);
         }
 
         /// <summary>
@@ -466,6 +414,45 @@ namespace Nop.Plugin.Payments.Platron
         {
             return await _localizationService.GetResourceAsync("Plugins.Payments.Platron.Fields.PaymentMethodDescription");
         }
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Gets a value indicating whether capture is supported
+        /// </summary>
+        public bool SupportCapture => false;
+
+        /// <summary>
+        /// Gets a value indicating whether partial refund is supported
+        /// </summary>
+        public bool SupportPartiallyRefund => false;
+
+        /// <summary>
+        /// Gets a value indicating whether refund is supported
+        /// </summary>
+        public bool SupportRefund => false;
+
+        /// <summary>
+        /// Gets a value indicating whether void is supported
+        /// </summary>
+        public bool SupportVoid => false;
+
+        /// <summary>
+        /// Gets a recurring payment type of payment method
+        /// </summary>
+        public RecurringPaymentType RecurringPaymentType => RecurringPaymentType.NotSupported;
+
+        /// <summary>
+        /// Gets a payment method type
+        /// </summary>
+        public PaymentMethodType PaymentMethodType => PaymentMethodType.Redirection;
+
+        /// <summary>
+        /// Gets a value indicating whether we should display a payment information page for this plugin
+        /// </summary>
+        public bool SkipPaymentInfo => false;
 
         #endregion
     }
