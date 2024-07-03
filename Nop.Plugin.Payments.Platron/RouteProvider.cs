@@ -22,12 +22,6 @@ namespace Nop.Plugin.Payments.Platron
                  new { controller = "PaymentPlatron", action = "Success" });
         }
 
-        public int Priority
-        {
-            get
-            {
-                return 0;
-            }
-        }
+        public int Priority => 0;
     }
 }
